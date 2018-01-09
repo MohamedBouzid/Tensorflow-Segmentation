@@ -7,7 +7,7 @@ from conv2d import Conv2d
 from max_pool_2d import MaxPool2d
 import numpy as np
 import cv2
-
+from scipy import ndimage
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
@@ -15,8 +15,8 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("model_dir", default="", type=str, help="Path to directory storing checkpointed model.")
-    parser.add_argument("input_image", default="", type=str, help="Path to image for which the segmentation should be performed.")
+    parser.add_argument("model_dir", default="save/C7,64,2C7,64,1M2C7,64,2C7,64,1M2C7,64,2C7,64,1M2/2017-12-10_200959", type=str, help="Path to directory storing checkpointed model.")
+    parser.add_argument("input_image", default="imageset-1-1.jpg", type=str, help="Path to image for which the segmentation should be performed.")
     parser.add_argument("--out", default="/tmp", type=str, help="Path to directory to store resulting image.")
     args = parser.parse_args()
 
@@ -51,7 +51,7 @@ if __name__ == '__main__':
             raise IOError('No model found in {}.'.format(checkpoint))
 
 
-        image = np.array(cv2.imread(input_image, 0))  # load grayscale
+        image = np.array(ndimage.imread(input_image))  # load grayscale
         image = cv2.resize(image, (network.IMAGE_HEIGHT, network.IMAGE_WIDTH))
         image = np.multiply(image, 1.0/255)
         # cv2.imshow('image', image)

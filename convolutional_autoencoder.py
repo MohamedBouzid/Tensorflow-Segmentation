@@ -5,7 +5,7 @@ from math import ceil
 
 import cv2
 import matplotlib
-
+from scipy import ndimage
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
@@ -107,9 +107,8 @@ class Network:
 
 
 class Dataset:
-    def __init__(self, batch_size, folder='data128_128', include_hair=False):
+    def __init__(self, batch_size, folder):
         self.batch_size = batch_size
-        self.include_hair = include_hair
 
         train_files, validation_files, test_files = self.train_valid_test_split(
             os.listdir(os.path.join(folder, 'inputs')))
@@ -125,16 +124,16 @@ class Dataset:
 
         for file in files_list:
             input_image = os.path.join(folder, 'inputs', file)
-            target_image = os.path.join(folder, 'targets' if self.include_hair else 'targets_face_only', file)
+            target_image = os.path.join(folder, 'targets', file)
 
-            test_image = np.array(cv2.imread(input_image, 0))  # load grayscale
+            test_image = np.array(ndimage.imread(input_image))  # load grayscale
             # test_image = np.multiply(test_image, 1.0 / 255)
             inputs.append(test_image)
 
-            target_image = cv2.imread(target_image, 0)
+            target_image = ndimage.imread(target_image)
             target_image = cv2.threshold(target_image, 127, 1, cv2.THRESH_BINARY)[1]
             targets.append(target_image)
-
+        print(targets)
         return inputs, targets
 
     def train_valid_test_split(self, X, ratio=None):
@@ -167,7 +166,10 @@ class Dataset:
             targets.append(np.array(self.train_targets[self.pointer + i]))
 
         self.pointer += self.batch_size
-
+				
+        print(len(inputs))
+        print("################################################################################################")
+        print(len(targets))
         return np.array(inputs, dtype=np.uint8), np.array(targets, dtype=np.uint8)
 
     @property
@@ -205,7 +207,7 @@ def draw_results(test_inputs, test_targets, test_segmentation, test_accuracy, ne
 
 
 def train():
-    BATCH_SIZE = 100
+    BATCH_SIZE = 10
 
     network = Network()
 
@@ -214,37 +216,11 @@ def train():
     # create directory for saving models
     os.makedirs(os.path.join('save', network.description, timestamp))
 
-    dataset = Dataset(folder='data{}_{}'.format(network.IMAGE_HEIGHT, network.IMAGE_WIDTH), include_hair=False,
-                      batch_size=BATCH_SIZE)
+    dataset = Dataset(BATCH_SIZE, 'data200_200')
 
     inputs, targets = dataset.next_batch()
     print(inputs.shape, targets.shape)
 
-    # augmentation_seq = iaa.Sequential([
-    #     iaa.Crop(px=(0, 16)),  # crop images from each side by 0 to 16px (randomly chosen)
-    #     iaa.Fliplr(0.5),  # horizontally flip 50% of the images
-    #     iaa.GaussianBlur(sigma=(0, 2.0))  # blur images with a sigma of 0 to 3.0
-    # ])
-
-    augmentation_seq = iaa.Sequential([
-        iaa.Crop(px=(0, 16), name="Cropper"),  # crop images from each side by 0 to 16px (randomly chosen)
-        iaa.Fliplr(0.5, name="Flipper"),
-        iaa.GaussianBlur((0, 3.0), name="GaussianBlur"),
-        iaa.Dropout(0.02, name="Dropout"),
-        iaa.AdditiveGaussianNoise(scale=0.01 * 255, name="GaussianNoise"),
-        iaa.Affine(translate_px={"x": (-network.IMAGE_HEIGHT // 3, network.IMAGE_WIDTH // 3)}, name="Affine")
-    ])
-
-    # change the activated augmenters for binary masks,
-    # we only want to execute horizontal crop, flip and affine transformation
-    def activator_binmasks(images, augmenter, parents, default):
-        if augmenter.name in ["GaussianBlur", "Dropout", "GaussianNoise"]:
-            return False
-        else:
-            # default value for all other augmenters
-            return default
-
-    hooks_binmasks = imgaug.HooksImages(activator=activator_binmasks)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -255,15 +231,13 @@ def train():
 
         test_accuracies = []
         # Fit all training data
-        n_epochs = 500
+        n_epochs = 20
         global_start = time.time()
         for epoch_i in range(n_epochs):
             dataset.reset_batch_pointer()
 
             for batch_i in range(dataset.num_batches_in_epoch()):
                 batch_num = epoch_i * dataset.num_batches_in_epoch() + batch_i + 1
-
-                augmentation_seq_deterministic = augmentation_seq.to_deterministic()
 
                 start = time.time()
                 batch_inputs, batch_targets = dataset.next_batch()
@@ -272,10 +246,8 @@ def train():
                 batch_targets = np.reshape(batch_targets,
                                            (dataset.batch_size, network.IMAGE_HEIGHT, network.IMAGE_WIDTH, 1))
 
-                batch_inputs = augmentation_seq_deterministic.augment_images(batch_inputs)
                 batch_inputs = np.multiply(batch_inputs, 1.0 / 255)
 
-                batch_targets = augmentation_seq_deterministic.augment_images(batch_targets, hooks=hooks_binmasks)
 
                 cost, _ = sess.run([network.cost, network.train_op],
                                    feed_dict={network.inputs: batch_inputs, network.targets: batch_targets,
@@ -285,7 +257,7 @@ def train():
                                                                           n_epochs * dataset.num_batches_in_epoch(),
                                                                           epoch_i, cost, end - start))
 
-                if batch_num % 100 == 0 or batch_num == n_epochs * dataset.num_batches_in_epoch():
+                if batch_num % BATCH_SIZE == 0 or batch_num == n_epochs * dataset.num_batches_in_epoch():
                     test_inputs, test_targets = dataset.test_set
                     # test_inputs, test_targets = test_inputs[:100], test_targets[:100]
 
@@ -308,30 +280,6 @@ def train():
                     print("Best accuracy: {} in batch {}".format(max_acc[0], max_acc[1]))
                     print("Total time: {}".format(time.time() - global_start))
 
-                    # Plot example reconstructions
-                    n_examples = 12
-                    test_inputs, test_targets = dataset.test_inputs[:n_examples], dataset.test_targets[:n_examples]
-                    test_inputs = np.multiply(test_inputs, 1.0 / 255)
-
-                    test_segmentation = sess.run(network.segmentation_result, feed_dict={
-                        network.inputs: np.reshape(test_inputs,
-                                                   [n_examples, network.IMAGE_HEIGHT, network.IMAGE_WIDTH, 1])})
-
-                    # Prepare the plot
-                    test_plot_buf = draw_results(test_inputs, test_targets, test_segmentation, test_accuracy, network,
-                                                 batch_num)
-
-                    # Convert PNG buffer to TF image
-                    image = tf.image.decode_png(test_plot_buf.getvalue(), channels=4)
-
-                    # Add the batch dimension
-                    image = tf.expand_dims(image, 0)
-
-                    # Add image summary
-                    image_summary_op = tf.summary.image("plot", image)
-
-                    image_summary = sess.run(image_summary_op)
-                    summary_writer.add_summary(image_summary)
 
                     if test_accuracy >= max_acc[0]:
                         checkpoint_path = os.path.join('save', network.description, timestamp, 'model.ckpt')
