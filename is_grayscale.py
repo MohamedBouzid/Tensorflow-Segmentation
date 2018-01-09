@@ -74,7 +74,7 @@ def modify(path):
 def clean_image(path):
 	l = os.listdir(path)
 	for im in l:
-		if(im[-3:-1]=="jp"):
+		if(im[-3:]=="png"):
 			modify(os.path.join(path,im))
 
 def print_imageset(path):
@@ -88,11 +88,17 @@ def print_image(path):
 	print(ima)
 #modify("imageset1300.png")
 #resize(os.path.join("data200_200","inputs"), 128, 128)
+#resize(os.path.join("data200_200","inputs1"), 128, 128)
+#resize(os.path.join("data200_200","inputs"), 128, 128)
+#resize(os.path.join("data200_200","targets"), 128, 128)
+#resize(os.path.join("data200_200","targets1"), 128, 128)
+#clean_image(os.path.join("data200_200","targets1"))
+#clean_image(os.path.join("data200_200","targets"))
 
 np.set_printoptions(threshold=np.nan)
 #print(ndimage.imread(os.path.join("/","tmp","result.jpg")).shape)
-print_image(os.path.join("/","tmp","result.jpg"))
-#print(print_imageset(os.path.join("data200_200","inputs")))
+#print_image(os.path.join("/","tmp","result.jpg"))
+#print(print_imageset(os.path.join("data200_200","targets")))
 #print_imageset(os.path.join("data128_128","targets"))
 #print_imageset(os.path.join("data200_200","inputs"))
 #print(greyscaletest(os.path.join("data200_200","inputs")))
