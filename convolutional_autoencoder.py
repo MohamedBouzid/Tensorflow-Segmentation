@@ -202,7 +202,7 @@ def draw_results(test_inputs, test_targets, test_segmentation, test_accuracy, ne
 
 
 def train():
-    BATCH_SIZE = 10
+    BATCH_SIZE = 100
 
     network = Network()
 
@@ -226,7 +226,7 @@ def train():
 
         test_accuracies = []
         # Fit all training data
-        n_epochs = 20
+        n_epochs = 10
         global_start = time.time()
         for epoch_i in range(n_epochs):
             dataset.reset_batch_pointer()
