@@ -13,8 +13,6 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import gen_nn_ops
 
-from imgaug import augmenters as iaa
-from imgaug import imgaug
 from conv2d import Conv2d
 from max_pool_2d import MaxPool2d
 import datetime
@@ -133,7 +131,7 @@ class Dataset:
             target_image = ndimage.imread(target_image)
             target_image = cv2.threshold(target_image, 127, 1, cv2.THRESH_BINARY)[1]
             targets.append(target_image)
-        print(targets)
+
         return inputs, targets
 
     def train_valid_test_split(self, X, ratio=None):
@@ -167,9 +165,6 @@ class Dataset:
 
         self.pointer += self.batch_size
 				
-        print(len(inputs))
-        print("################################################################################################")
-        print(len(targets))
         return np.array(inputs, dtype=np.uint8), np.array(targets, dtype=np.uint8)
 
     @property
@@ -219,7 +214,7 @@ def train():
     dataset = Dataset(BATCH_SIZE, 'data200_200')
 
     inputs, targets = dataset.next_batch()
-    print(inputs.shape, targets.shape)
+
 
 
     with tf.Session() as sess:
@@ -265,7 +260,7 @@ def train():
                     test_targets = np.reshape(test_targets, (-1, network.IMAGE_HEIGHT, network.IMAGE_WIDTH, 1))
                     test_inputs = np.multiply(test_inputs, 1.0 / 255)
 
-                    print(test_inputs.shape)
+
                     summary, test_accuracy = sess.run([network.summaries, network.accuracy],
                                                       feed_dict={network.inputs: test_inputs,
                                                                  network.targets: test_targets,
