@@ -33,26 +33,34 @@ np.set_printoptions(threshold=np.nan)
 
 
 class Network:
-    IMAGE_HEIGHT = 128
-    IMAGE_WIDTH = 128
+    IMAGE_HEIGHT = 192
+    IMAGE_WIDTH  = 192
     IMAGE_CHANNELS = 1
 
     def __init__(self, layers=None, per_image_standardization=True, batch_norm=True, skip_connections=True):
         # Define network - ENCODER (decoder will be symmetric).
-
+        s=3
         if layers == None:
             layers = []
-            layers.append(Conv2d(kernel_size=7, strides=[1, 2, 2, 1], output_channels=64, name='conv_1_1'))
-            layers.append(Conv2d(kernel_size=7, strides=[1, 1, 1, 1], output_channels=64, name='conv_1_2'))
-            layers.append(MaxPool2d(kernel_size=2, name='max_1', skip_connection=skip_connections))
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_1_1')) # 61 x 61 x 64
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_1_2')) # 55 x 55 x 64
+            layers.append(MaxPool2d(kernel_size=2, name='max_1', skip_connection=skip_connections)) 				# 54 x 54
 
-            layers.append(Conv2d(kernel_size=7, strides=[1, 2, 2, 1], output_channels=64, name='conv_2_1'))
-            layers.append(Conv2d(kernel_size=7, strides=[1, 1, 1, 1], output_channels=64, name='conv_2_2'))
-            layers.append(MaxPool2d(kernel_size=2, name='max_2', skip_connection=skip_connections))
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_2_1')) # 24 x 24 x 64 
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_2_2')) # 18
+            layers.append(MaxPool2d(kernel_size=2, name='max_2', skip_connection=skip_connections))  				# 17
 
-            layers.append(Conv2d(kernel_size=7, strides=[1, 2, 2, 1], output_channels=64, name='conv_3_1'))
-            layers.append(Conv2d(kernel_size=7, strides=[1, 1, 1, 1], output_channels=64, name='conv_3_2'))
-            layers.append(MaxPool2d(kernel_size=2, name='max_3'))
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_3_1')) # 24 x 24 x 64 
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_3_2')) # 18
+            layers.append(MaxPool2d(kernel_size=2, name='max_3', skip_connection=skip_connections))  				# 17 
+
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_4_1')) # 6
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_4_2')) 
+            layers.append(MaxPool2d(kernel_size=2, name='max_4', skip_connection=skip_connections))
+
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_5_1')) # 6
+            layers.append(Conv2d(kernel_size=s, strides=[1, 1, 1, 1], output_channels=64, name='conv_5_2')) 
+            layers.append(MaxPool2d(kernel_size=2, name='max_5'))
 
         self.inputs = tf.placeholder(tf.float32, [None, self.IMAGE_HEIGHT, self.IMAGE_WIDTH, self.IMAGE_CHANNELS],
                                      name='inputs')
@@ -92,7 +100,9 @@ class Network:
                                                                         self.targets.get_shape()))
 
         # MSE loss
+
         self.cost = tf.sqrt(tf.reduce_mean(tf.square(self.segmentation_result - self.targets)))
+
         self.train_op = tf.train.AdamOptimizer().minimize(self.cost)
         with tf.name_scope('accuracy'):
             argmax_probs = tf.round(self.segmentation_result)  # 0x1
@@ -202,7 +212,7 @@ def draw_results(test_inputs, test_targets, test_segmentation, test_accuracy, ne
 
 
 def train():
-    BATCH_SIZE = 100
+    BATCH_SIZE = 10
 
     network = Network()
 
@@ -211,7 +221,7 @@ def train():
     # create directory for saving models
     os.makedirs(os.path.join('save', network.description, timestamp))
 
-    dataset = Dataset(BATCH_SIZE, 'data200_200')
+    dataset = Dataset(BATCH_SIZE, 'data192_192')
 
     inputs, targets = dataset.next_batch()
 
@@ -226,7 +236,7 @@ def train():
 
         test_accuracies = []
         # Fit all training data
-        n_epochs = 10
+        n_epochs = 50
         global_start = time.time()
         for epoch_i in range(n_epochs):
             dataset.reset_batch_pointer()
@@ -247,6 +257,7 @@ def train():
                 cost, _ = sess.run([network.cost, network.train_op],
                                    feed_dict={network.inputs: batch_inputs, network.targets: batch_targets,
                                               network.is_training: True})
+                print("cost.shape  = ",cost.shape)
                 end = time.time()
                 print('{}/{}, epoch: {}, cost: {}, batch time: {}'.format(batch_num,
                                                                           n_epochs * dataset.num_batches_in_epoch(),

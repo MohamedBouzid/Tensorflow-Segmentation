@@ -96,6 +96,13 @@ def print_image(path):
 #clean_image(os.path.join("data200_200","targets"))
 
 np.set_printoptions(threshold=np.nan)
+
+s=192
+#resize(os.path.join("data128_128","inputs"), s, s)
+#resize(os.path.join("data128_128","targets"), s, s)
+#print(size(os.path.join("data200_200","inputs")))
+#print(size(os.path.join("data200_200","targets")))
+
 #print(ndimage.imread(os.path.join("/","tmp","result.jpg")).shape)
 #print_image(os.path.join("/","tmp","result.jpg"))
 #print(print_imageset(os.path.join("data200_200","targets")))
