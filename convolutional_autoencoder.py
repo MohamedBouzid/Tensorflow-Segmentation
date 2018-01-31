@@ -21,17 +21,6 @@ import io
 np.set_printoptions(threshold=np.nan)
 
 
-# @ops.RegisterGradient("MaxPoolWithArgmax")
-# def _MaxPoolWithArgmaxGrad(op, grad, unused_argmax_grad):
-#     return gen_nn_ops._max_pool_grad(op.inputs[0],
-#                                      op.outputs[0],
-#                                      grad,
-#                                      op.get_attr("ksize"),
-#                                      op.get_attr("strides"),
-#                                      padding=op.get_attr("padding"),
-#                                      data_format='NHWC')
-
-
 class Network:
     IMAGE_HEIGHT = 192
     IMAGE_WIDTH  = 192
@@ -92,10 +81,6 @@ class Network:
 
         self.segmentation_result = tf.sigmoid(net)
 
-        # segmentation_as_classes = tf.reshape(self.y, [50 * self.IMAGE_HEIGHT * self.IMAGE_WIDTH, 1])
-        # targets_as_classes = tf.reshape(self.targets, [50 * self.IMAGE_HEIGHT * self.IMAGE_WIDTH])
-        # print(self.y.get_shape())
-        # self.cost = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(segmentation_as_classes, targets_as_classes))
         print('segmentation_result.shape: {}, targets.shape: {}'.format(self.segmentation_result.get_shape(),
                                                                         self.targets.get_shape()))
 
@@ -133,11 +118,11 @@ class Dataset:
         for file in files_list:
             input_image = os.path.join(folder, 'inputs', file)
             target_image = os.path.join(folder, 'targets', file)
-
+            cv2.resize(input_image, 192, 192)
+            cv2.resize(target_image, 192, 192)
             test_image = np.array(ndimage.imread(input_image))  # load grayscale
             # test_image = np.multiply(test_image, 1.0 / 255)
             inputs.append(test_image)
-
             target_image = ndimage.imread(target_image)
             target_image = cv2.threshold(target_image, 127, 1, cv2.THRESH_BINARY)[1]
             targets.append(target_image)
@@ -180,35 +165,6 @@ class Dataset:
     @property
     def test_set(self):
         return np.array(self.test_inputs, dtype=np.uint8), np.array(self.test_targets, dtype=np.uint8)
-
-
-def draw_results(test_inputs, test_targets, test_segmentation, test_accuracy, network, batch_num):
-    n_examples_to_plot = 12
-    fig, axs = plt.subplots(4, n_examples_to_plot, figsize=(n_examples_to_plot * 3, 10))
-    fig.suptitle("Accuracy: {}, {}".format(test_accuracy, network.description), fontsize=20)
-    for example_i in range(n_examples_to_plot):
-        axs[0][example_i].imshow(test_inputs[example_i], cmap='gray')
-        axs[1][example_i].imshow(test_targets[example_i].astype(np.float32), cmap='gray')
-        axs[2][example_i].imshow(
-            np.reshape(test_segmentation[example_i], [network.IMAGE_HEIGHT, network.IMAGE_WIDTH]),
-            cmap='gray')
-
-        test_image_thresholded = np.array(
-            [0 if x < 0.5 else 255 for x in test_segmentation[example_i].flatten()])
-        axs[3][example_i].imshow(
-            np.reshape(test_image_thresholded, [network.IMAGE_HEIGHT, network.IMAGE_WIDTH]),
-            cmap='gray')
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-
-    IMAGE_PLOT_DIR = 'image_plots/'
-    if not os.path.exists(IMAGE_PLOT_DIR):
-        os.makedirs(IMAGE_PLOT_DIR)
-
-    plt.savefig('{}/figure{}.jpg'.format(IMAGE_PLOT_DIR, batch_num))
-    return buf
 
 
 def train():
